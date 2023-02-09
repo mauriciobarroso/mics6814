@@ -47,28 +47,47 @@ extern "C" {
 #include "esp_adc/adc_cali_scheme.h"
 
 /* Exported macro ------------------------------------------------------------*/
+#define NH3_DEFAULT_CALIB_VALUE	860
+#define CO_DEFAULT_CALIB_VALUE	950
+#define NO2_DEFAULT_CALIB_VALUE	155
 
 /* Exported typedef ----------------------------------------------------------*/
 /* todo: write descriptions */
 typedef enum {
-	NH3 = 0,
-	CO,
-	NO2
+	CO_GAS = 0,
+	NO2_GAS,
+	NH3_GAS,
+	C3H8_GAS,
+	C4H10_GAS,
+	CH4_GAS,
+	H2_GAS,
+	C2H5OH_GAS
 } gas_e;
+
+typedef enum {
+	CO_CHANNEL = 0,
+	NO2_CHANNEL,
+	NH3_CHANNEL
+} mics6814_channel_e;
 
 /* todo: write descriptions */
 typedef struct {
-	adc_oneshot_unit_handle_t adc_handle;
-	adc_unit_t adc_unit;
 	adc_channel_t adc_channel;
 	adc_cali_handle_t adc_cali_handle;
 } adc_conf_t;
+
+typedef struct {
+	uint16_t nh3;
+	uint16_t co;
+	uint16_t no2;
+} calibration_values_t;
 
 /* todo: write descriptions */
 typedef struct {
 	adc_conf_t nh3;
 	adc_conf_t co;
 	adc_conf_t no2;
+	calibration_values_t calib_values;
 } mics6814_t;
 
 /* Exported variables --------------------------------------------------------*/
@@ -76,25 +95,47 @@ typedef struct {
 /* Exported functions prototypes ---------------------------------------------*/
 
 /**
-  * @brief Initialize a MICS-6814 sensor instance
+  * @brief Initialize a MiCS-6814 sensor instance
   *
   * @param me Pointer to a mics6814_t structure
   *
   * @retval
   * 	- ESP_OK on success
   */
-esp_err_t mics6814_init (mics6814_t * const me);
+esp_err_t mics6814_init(mics6814_t * const me, adc_channel_t nh3_channel,
+		adc_channel_t co_channel, adc_channel_t no2_channel);
 
-/* todo: write description */
 /**
-  * @brief Initialize a MICS-6814 sensor instance
+  * @brief Calibrate a MiCS-6814 sensor instance
   *
   * @param me Pointer to a mics6814_t structure
   *
   * @retval
   * 	- ESP_OK on success
   */
-int mics6814_get_gas(mics6814_t * const me, gas_e gas);
+esp_err_t mics6814_calib(mics6814_t * const me);	/* todo: define */
+
+/**
+  * @brief Load calibration values for a MICS-6814 sensor instance
+  *
+  * @param me Pointer to a mics6814_t structure
+  * @param nh3_value Value for the NH3 sensor
+  * @param co_value Value for the CO sensor
+  * @param co2_value Value for the NO2 sensor
+  */
+void mics6814_load_calibration_data(mics6814_t * const me, uint16_t nh3_value,
+		uint16_t co_value, uint16_t no2_value);
+
+/**
+  * @brief Get a value for a specific gas
+  *
+  * @param me Pointer to a mics6814_t structure
+  * @param gas Type of specific gas
+  *
+  * @retval
+  * 	- Gas value
+  */
+float mics6814_get_gas(mics6814_t * const me, gas_e gas);
 
 #ifdef __cplusplus
 }
