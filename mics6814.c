@@ -277,7 +277,7 @@ static float calculate_ratio(mics6814_t * const me, mics6814_channel_e channel) 
 			break;
 	}
 
-	return current_resistance / base_resistance * (1023.0 - base_resistance) / (1023.0 - current_resistance);;
+	return current_resistance / base_resistance * (4096.0 - base_resistance) / (4096.0 - current_resistance);;
 }
 
 /***************************** END OF FILE ************************************/
