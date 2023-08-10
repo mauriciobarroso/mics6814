@@ -49,10 +49,10 @@ const static char * TAG = "mics6814";
 static adc_oneshot_unit_handle_t adc_unit_handle = NULL;
 
 /* Private function prototypes -----------------------------------------------*/
-static esp_err_t adc_configure_channel(adc_conf_t * adc_conf);
+static esp_err_t adc_configure_channel(adc_conf_t *adc_conf);
 static bool adc_calibration_init(adc_unit_t unit, adc_atten_t atten, adc_cali_handle_t *out_handle);
-static int adc_get_value(mics6814_t * const me, mics6814_channel_e channel);
-static float calculate_ratio(mics6814_t * const me, mics6814_channel_e channel);
+static int adc_get_value(mics6814_t *const me, mics6814_channel_e channel);
+static float calculate_ratio(mics6814_t *const me, mics6814_channel_e channel);
 
 /* Exported functions --------------------------------------------------------*/
 /**
@@ -65,9 +65,9 @@ esp_err_t mics6814_init(mics6814_t * const me, adc_channel_t nh3_channel,
 	ESP_LOGI(TAG, "Initializing MICS-6814 instance...");
 
 	/* Fill mics6814 channels */
+	me->nh3.adc_channel = nh3_channel;
 	me->co.adc_channel = co_channel;
 	me->no2.adc_channel = no2_channel;
-	me->nh3.adc_channel = nh3_channel;
 
 	/* Initialize ADC channels */
 	adc_configure_channel(&me->nh3);
@@ -102,7 +102,7 @@ void mics6814_load_calibration_data(mics6814_t * const me, uint16_t nh3_value,
 /**
   * @brief Get a value for a specific gas
   */
-float mics6814_get_gas(mics6814_t * const me, gas_e gas) {
+float mics6814_get_gas(mics6814_t *const me, gas_e gas) {
 	float gas_value;
 
 	/* Calculate the ratio for all the sensor channels */
@@ -145,8 +145,8 @@ float mics6814_get_gas(mics6814_t * const me, gas_e gas) {
 }
 
 /* Private functions ---------------------------------------------------------*/
-static esp_err_t adc_configure_channel(adc_conf_t * adc_conf) {
-	esp_err_t ret;
+static esp_err_t adc_configure_channel(adc_conf_t *adc_conf) {
+	esp_err_t ret = ESP_OK;
 
 	/* Fill an ADC unit configuration */
 	adc_oneshot_unit_init_cfg_t adc_config = {
@@ -160,14 +160,14 @@ static esp_err_t adc_configure_channel(adc_conf_t * adc_conf) {
 
 		/* Check if the ADC unit was created correctly */
 		if (ret != ESP_OK) {
-			ESP_LOGE(TAG, "Error creating new ADC unit");
+			ESP_LOGE(TAG, "Failed to create ADC unit");
 			return ret;
 		}
 	}
 
 	/* Set up the ADC channel structure */
 	adc_oneshot_chan_cfg_t adc_channel_config = {
-			.bitwidth = ADC_BITWIDTH_12,
+			.bitwidth = ADC_BITWIDTH_13,
 			.atten = ADC_ATTEN_DB_11,
 	};
 
@@ -175,10 +175,11 @@ static esp_err_t adc_configure_channel(adc_conf_t * adc_conf) {
 	ret = adc_oneshot_config_channel(adc_unit_handle, adc_conf->adc_channel, &adc_channel_config);
 
 	if (ret != ESP_OK) {
-		ESP_LOGE(TAG, "Error configuring ADC channel");
+		ESP_LOGE(TAG, "Failed to configure ADC channel %d", adc_conf->adc_channel);
 		return ret;
 	}
 
+	/* Return ESP_OK */
 	return ret;
 }
 
@@ -192,7 +193,7 @@ static bool adc_calibration_init (adc_unit_t unit, adc_atten_t atten, adc_cali_h
       adc_cali_line_fitting_config_t cali_config = {
           .unit_id = unit,
           .atten = atten,
-          .bitwidth = ADC_BITWIDTH_12,
+          .bitwidth = ADC_BITWIDTH_13,
       };
       ret = adc_cali_create_scheme_line_fitting(&cali_config, &handle);
       if (ret == ESP_OK) {
@@ -277,7 +278,7 @@ static float calculate_ratio(mics6814_t * const me, mics6814_channel_e channel) 
 			break;
 	}
 
-	return current_resistance / base_resistance * (4096.0 - base_resistance) / (4096.0 - current_resistance);;
+	return current_resistance / base_resistance * (8192.0 - base_resistance) / (8192.0 - current_resistance);
 }
 
 /***************************** END OF FILE ************************************/
