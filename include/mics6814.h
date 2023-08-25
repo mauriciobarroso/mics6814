@@ -47,27 +47,27 @@ extern "C" {
 #include "esp_adc/adc_cali_scheme.h"
 
 /* Exported macro ------------------------------------------------------------*/
-#define NH3_DEFAULT_CALIB_VALUE	860
-#define CO_DEFAULT_CALIB_VALUE	950
-#define NO2_DEFAULT_CALIB_VALUE	155
+#define NH3_DEFAULT_CALIB_VALUE	6886
+#define CO_DEFAULT_CALIB_VALUE	7606
+#define NO2_DEFAULT_CALIB_VALUE	1240
 
 /* Exported typedef ----------------------------------------------------------*/
 /* todo: write descriptions */
 typedef enum {
-	CO_GAS = 0,
-	NO2_GAS,
-	NH3_GAS,
-	C3H8_GAS,
-	C4H10_GAS,
-	CH4_GAS,
-	H2_GAS,
-	C2H5OH_GAS
+	MICS6814_GAS_CO = 0,
+	MICS6814_GAS_NO2,
+	MICS6814_GAS_NH3,
+	MICS6814_GAS_C3H8,
+	MICS6814_GAS_C4H10,
+	MICS6814_GAS_CH4,
+	MICS6814_GAS_H2,
+	MICS6814_GAS_C2H5OH
 } gas_e;
 
 typedef enum {
-	CO_CHANNEL = 0,
-	NO2_CHANNEL,
-	NH3_CHANNEL
+	MICS6814_CH_CO = 0,
+	MICS6814_CH_NO2,
+	MICS6814_CH_NH3
 } mics6814_channel_e;
 
 /* todo: write descriptions */

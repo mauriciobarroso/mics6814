@@ -20,7 +20,7 @@
   *
   * The above copyright notice and this permission notice shall be included in
   * all copies or substantial portions of the Software.
-  * 
+  *
   * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
   * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
   * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -50,19 +50,18 @@ static adc_oneshot_unit_handle_t adc_unit_handle = NULL;
 
 /* Private function prototypes -----------------------------------------------*/
 static esp_err_t adc_configure_channel(adc_conf_t *adc_conf);
-static bool adc_calibration_init(adc_unit_t unit, adc_atten_t atten, adc_cali_handle_t *out_handle);
-static int adc_get_value(mics6814_t *const me, mics6814_channel_e channel);
+static int adc_get_value(adc_channel_t channel);
 static float calculate_ratio(mics6814_t *const me, mics6814_channel_e channel);
 
 /* Exported functions --------------------------------------------------------*/
 /**
   * @brief Initialize a MiCS-6814 sensor instance
   */
-esp_err_t mics6814_init(mics6814_t * const me, adc_channel_t nh3_channel,
+esp_err_t mics6814_init(mics6814_t *const me, adc_channel_t nh3_channel,
 		adc_channel_t co_channel, adc_channel_t no2_channel) {
-	esp_err_t ret = ESP_OK;
+	ESP_LOGI(TAG, "Initializing MiCS-6814 instance...");
 
-	ESP_LOGI(TAG, "Initializing MICS-6814 instance...");
+	esp_err_t ret = ESP_OK;
 
 	/* Fill mics6814 channels */
 	me->nh3.adc_channel = nh3_channel;
@@ -74,25 +73,21 @@ esp_err_t mics6814_init(mics6814_t * const me, adc_channel_t nh3_channel,
 	adc_configure_channel(&me->co);
 	adc_configure_channel(&me->no2);
 
-	/* Initialize ADC calibration */
-	adc_calibration_init(ADC_UNIT_1, ADC_ATTEN_DB_11, &me->nh3.adc_cali_handle);
-	adc_calibration_init(ADC_UNIT_1, ADC_ATTEN_DB_11, &me->co.adc_cali_handle);
-	adc_calibration_init(ADC_UNIT_1, ADC_ATTEN_DB_11, &me->no2.adc_cali_handle);
-
 	/* Fill default calibration values */
 	me->calib_values.nh3 = NH3_DEFAULT_CALIB_VALUE;
 	me->calib_values.co = CO_DEFAULT_CALIB_VALUE;
 	me->calib_values.no2 = NO2_DEFAULT_CALIB_VALUE;
 
-	ESP_LOGI(TAG, "Initialization success");
+	ESP_LOGI(TAG, "Initialized successfully");
 
+	/* Return ESP_OK */
 	return ret;
 }
 
 /**
   * @brief Load calibration values for a MICS-6814 sensor instance
   */
-void mics6814_load_calibration_data(mics6814_t * const me, uint16_t nh3_value,
+void mics6814_load_calibration_data(mics6814_t *const me, uint16_t nh3_value,
 		uint16_t co_value, uint16_t no2_value) {
 	me->calib_values.nh3 = nh3_value;
 	me->calib_values.co = co_value;
@@ -106,38 +101,38 @@ float mics6814_get_gas(mics6814_t *const me, gas_e gas) {
 	float gas_value;
 
 	/* Calculate the ratio for all the sensor channels */
-	float ratio0 = calculate_ratio(me, NH3_CHANNEL);
-	float ratio1 = calculate_ratio(me, CO_CHANNEL);
-	float ratio2 = calculate_ratio(me, NO2_CHANNEL);
+	float ratio0 = calculate_ratio(me, MICS6814_CH_NH3);
+	float ratio1 = calculate_ratio(me, MICS6814_CH_CO);
+	float ratio2 = calculate_ratio(me, MICS6814_CH_NO2);
 
 	/* Calculate the specific gas */
 	switch (gas) {
-		case CO_GAS:
+		case MICS6814_GAS_CO:
 			gas_value = pow(ratio1, -1.179) * 4.385;
 			break;
-    case NO2_GAS:
+    case MICS6814_GAS_NO2:
     	gas_value = pow(ratio2, 1.007) / 6.855;
 			break;
-    case NH3_GAS:
+    case MICS6814_GAS_NH3:
     	gas_value = pow(ratio0, -1.67) / 1.47;
     	break;
-    case C3H8_GAS:
+    case MICS6814_GAS_C3H8:
     	gas_value = pow(ratio0, -2.518) * 570.164;
 			break;
-		case C4H10_GAS:
+		case MICS6814_GAS_C4H10:
 			gas_value = pow(ratio0, -2.138) * 398.107;
 			break;
-    case CH4_GAS:
+    case MICS6814_GAS_CH4:
     	gas_value = pow(ratio1, -4.363) * 630.957;
     	break;
-    case H2_GAS:
+    case MICS6814_GAS_H2:
     	gas_value = pow(ratio1, -1.8) * 0.73;
     	break;
-    case C2H5OH_GAS:
+    case MICS6814_GAS_C2H5OH:
     	gas_value = pow(ratio1, -1.552) * 1.622;
     	break;
     default:
-    	gas_value = -1;	/* Negative numbre for error */
+    	gas_value = -1;	/* Negative number for error */
 			break;
 	}
 
@@ -183,93 +178,39 @@ static esp_err_t adc_configure_channel(adc_conf_t *adc_conf) {
 	return ret;
 }
 
-static bool adc_calibration_init (adc_unit_t unit, adc_atten_t atten, adc_cali_handle_t * out_handle) {
-  adc_cali_handle_t handle = NULL;
-  esp_err_t ret = ESP_FAIL;
-  bool calibrated = false;
-
-  if (!calibrated) {
-      ESP_LOGI(TAG, "calibration scheme version is %s", "Line Fitting");
-      adc_cali_line_fitting_config_t cali_config = {
-          .unit_id = unit,
-          .atten = atten,
-          .bitwidth = ADC_BITWIDTH_13,
-      };
-      ret = adc_cali_create_scheme_line_fitting(&cali_config, &handle);
-      if (ret == ESP_OK) {
-          calibrated = true;
-      }
-  }
-
-  * out_handle = handle;
-  if (ret == ESP_OK) {
-      ESP_LOGI(TAG, "Calibration Success");
-  } else if (ret == ESP_ERR_NOT_SUPPORTED || !calibrated) {
-      ESP_LOGW(TAG, "eFuse not burnt, skip software calibration");
-  } else {
-      ESP_LOGE(TAG, "Invalid arg or no memory");
-  }
-
-  return calibrated;
-}
-
-static int adc_get_value(mics6814_t * const me, mics6814_channel_e channel) {
-	adc_conf_t * adc_conf = NULL;
-
-	switch (channel) {
-		case NH3_CHANNEL:
-			adc_conf = &me->nh3;
-			break;
-		case CO_CHANNEL:
-			adc_conf = &me->co;
-			break;
-		case NO2_CHANNEL:
-			adc_conf = &me->no2;
-			break;
-		default:
-			break;
-	}
-
-	esp_err_t ret;
+static int adc_get_value(adc_channel_t channel) {
 	int adc_value = 0;
 	int adc_acum = 0;
 
 	/* Acumulate the obtained ADC value 64 times */
-	for (uint8_t i = 0; i < 64; i++) {
-		/* Get ADC raw value */
-		ret = adc_oneshot_read(adc_unit_handle, adc_conf->adc_channel, &adc_value);
-
-		/* Add the ADC value to acumulator when the ADC read is successfully. In
-		 * other cases add 0 to acumulator */
-		if (ret != ESP_OK) {
-			adc_acum += 0;
-		}
-		else {
+	for (uint8_t i = 0; i < 32; i++) {
+		/* Get ADC raw value and add to acumulator when the ADC read is successfully */
+		if (adc_oneshot_read(adc_unit_handle, channel, &adc_value) == ESP_OK) {
 			adc_acum += adc_value;
 		}
 	}
 
-	/* Divide by 64 and assign to output variable */
-	adc_value = adc_acum >> 6;
+	/* Divide by 32 and assign to output variable */
+	adc_value = adc_acum >> 5;
 
 	return adc_value;
 }
 
-static float calculate_ratio(mics6814_t * const me, mics6814_channel_e channel) {
+static float calculate_ratio(mics6814_t *const me, mics6814_channel_e channel) {
 	float base_resistance, current_resistance;
 
 	switch (channel) {
-		case NH3_CHANNEL:
+		case MICS6814_CH_NH3:
 			base_resistance = (float)me->calib_values.nh3;
-			current_resistance = (float)adc_get_value(me, NH3_CHANNEL);
+			current_resistance = (float)adc_get_value(me->nh3.adc_channel);
 			break;
-		case CO_CHANNEL:
+		case MICS6814_CH_CO:
 			base_resistance = (float)me->calib_values.co;
-			current_resistance = (float)adc_get_value(me, CO_CHANNEL);
+			current_resistance = (float)adc_get_value(me->co.adc_channel);
 			break;
-		case NO2_CHANNEL:
+		case MICS6814_CH_NO2:
 			base_resistance = (float)me->calib_values.no2;
-			current_resistance = (float)adc_get_value(me, NO2_CHANNEL);
+			current_resistance = (float)adc_get_value(me->no2.adc_channel);
 			break;
 		default:
 			/* Base and current resistance are 0 if the channel is invalid */
