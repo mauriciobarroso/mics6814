@@ -167,7 +167,7 @@ static esp_err_t adc_configure_channel(adc_conf_t *adc_conf) {
 
 	/* Set up the ADC channel structure */
 	adc_oneshot_chan_cfg_t adc_channel_config = {
-			.bitwidth = ADC_BITWIDTH_13,
+			.bitwidth = ADC_BITWIDTH_10,
 			.atten = ADC_ATTEN_DB_11,
 	};
 
@@ -193,7 +193,7 @@ static bool adc_calibration_init (adc_unit_t unit, adc_atten_t atten, adc_cali_h
       adc_cali_line_fitting_config_t cali_config = {
           .unit_id = unit,
           .atten = atten,
-          .bitwidth = ADC_BITWIDTH_13,
+          .bitwidth = ADC_BITWIDTH_10,
       };
       ret = adc_cali_create_scheme_line_fitting(&cali_config, &handle);
       if (ret == ESP_OK) {
@@ -278,7 +278,7 @@ static float calculate_ratio(mics6814_t * const me, mics6814_channel_e channel) 
 			break;
 	}
 
-	return current_resistance / base_resistance * (8192.0 - base_resistance) / (8192.0 - current_resistance);
+	return current_resistance / base_resistance * (1023.0 - base_resistance) / (1023.0 - current_resistance);
 }
 
 /***************************** END OF FILE ************************************/
