@@ -102,18 +102,8 @@ typedef struct {
   * @retval
   * 	- ESP_OK on success
   */
-esp_err_t mics6814_init(mics6814_t * const me, adc_channel_t nh3_channel,
+esp_err_t mics6814_init(mics6814_t *const me, adc_channel_t nh3_channel,
 		adc_channel_t co_channel, adc_channel_t no2_channel);
-
-/**
-  * @brief Calibrate a MiCS-6814 sensor instance
-  *
-  * @param me Pointer to a mics6814_t structure
-  *
-  * @retval
-  * 	- ESP_OK on success
-  */
-esp_err_t mics6814_calib(mics6814_t * const me);	/* todo: define */
 
 /**
   * @brief Load calibration values for a MICS-6814 sensor instance
@@ -123,7 +113,7 @@ esp_err_t mics6814_calib(mics6814_t * const me);	/* todo: define */
   * @param co_value Value for the CO sensor
   * @param co2_value Value for the NO2 sensor
   */
-void mics6814_load_calibration_data(mics6814_t * const me, uint16_t nh3_value,
+void mics6814_load_calibration_data(mics6814_t *const me, uint16_t nh3_value,
 		uint16_t co_value, uint16_t no2_value);
 
 /**
@@ -135,7 +125,18 @@ void mics6814_load_calibration_data(mics6814_t * const me, uint16_t nh3_value,
   * @retval
   * 	- Gas value
   */
-float mics6814_get_gas(mics6814_t * const me, gas_e gas);
+float mics6814_get_gas(mics6814_t *const me, gas_e gas);
+
+/**
+  * @brief Get a value for a specific gas
+  *
+  * @param me Pointer to a mics6814_t structure
+  * @param gas Type of specific gas
+  *
+  * @retval
+  * 	- Gas value
+  */
+void mics6814_calibrate(mics6814_t *const me);
 
 #ifdef __cplusplus
 }

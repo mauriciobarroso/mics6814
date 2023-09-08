@@ -34,6 +34,11 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include <math.h>
+#include <string.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include "mics6814.h"
 #include "esp_log.h"
 
@@ -78,6 +83,7 @@ esp_err_t mics6814_init(mics6814_t *const me, adc_channel_t nh3_channel,
 	me->calib_values.co = CO_DEFAULT_CALIB_VALUE;
 	me->calib_values.no2 = NO2_DEFAULT_CALIB_VALUE;
 
+	/* Print success message */
 	ESP_LOGI(TAG, "Initialized successfully");
 
 	/* Return ESP_OK */
@@ -139,6 +145,101 @@ float mics6814_get_gas(mics6814_t *const me, gas_e gas) {
 	return gas_value;
 }
 
+/**
+  * @brief Get a value for a specific gas
+  */
+void mics6814_calibrate(mics6814_t *const me) {
+	/* The number of seconds that must pass before than we will assume that the
+	 * calibration is complete (less than 64 seconds to avoid overflow) */
+	uint8_t seconds = 10;
+
+	/* Tolerance for the average of the current value */
+	uint8_t delta = 2;
+
+	/* Measurement buffers */
+	uint16_t bufferNH3[seconds];
+	uint16_t bufferCO[seconds];
+	uint16_t bufferNO2[seconds];
+
+	/* Pointers for the next item in the buffer */
+	uint8_t pntrNH3 = 0;
+	uint8_t pntrCO = 0;
+	uint8_t pntrNO2 = 0;
+
+	/* The current floating amount in the buffer */
+	uint16_t fltSumNH3 = 0;
+	uint16_t fltSumCO = 0;
+	uint16_t fltSumNO2 = 0;
+
+	/* Current measurement */
+	uint16_t curNH3;
+	uint16_t curCO;
+	uint16_t curNO2;
+
+	/* Flag of stability of indications */
+	bool isStableNH3 = false;
+	bool isStableCO = false;
+	bool isStableNO2 = false;
+
+	/* Clear the measurements buffers */
+	for (uint8_t i = 0; i < seconds; i++) {
+		bufferNH3[i] = 0;
+		bufferCO[i] = 0;
+		bufferNO2[i] = 0;
+	}
+
+	/* Perform the calibration process */
+	do {
+		vTaskDelay(pdMS_TO_TICKS(1000));
+
+		/* Get current values */
+		curNH3 = adc_get_value(me->nh3.adc_channel);
+		curCO = adc_get_value(me->co.adc_channel);
+		curNO2 = adc_get_value(me->no2.adc_channel);
+
+		printf("curNH3: %d\r\n", curNH3);
+		printf("curCO: %d\r\n", curCO);
+		printf("curNO2: %d\r\n", curNO2);
+
+		/* Store new values in the buffer */
+		fltSumNH3 += curNH3 - bufferNH3[pntrNH3];
+		fltSumCO += curCO - bufferCO[pntrCO];
+		fltSumNO2 += curNO2 - bufferNO2[pntrNO2];
+
+		printf("fltSumNH3: %d\r\n", fltSumNH3);
+		printf("fltSumCO: %d\r\n", fltSumCO);
+		printf("fltSumNO2: %d\r\n\n", fltSumNO2);
+
+		/* Store new values in the buffer */
+		bufferNH3[pntrNH3] = curNH3;
+		bufferCO[pntrCO] = curCO;
+		bufferNO2[pntrNO2] = curNO2;
+
+		/* Set flag states */
+		isStableNH3 = abs(fltSumNH3 / seconds - curNH3) < delta;
+		isStableCO = abs(fltSumCO / seconds - curCO) < delta;
+		isStableNO2 = abs(fltSumNO2 / seconds - curNO2) < delta;
+
+		/* Pointer to a buffer */
+		pntrNH3 = (pntrNH3 + 1) % seconds;
+		pntrCO = (pntrCO + 1) % seconds;
+		pntrNO2 = (pntrNO2 + 1) % seconds;
+	} while (!isStableNH3 || !isStableCO || !isStableNO2);
+
+	printf("nh3 calib: %d\r\n", me->calib_values.nh3);
+	printf("co calib: %d\r\n", me->calib_values.co);
+	printf("no2 calib: %d\r\n", me->calib_values.no2);
+
+	/* Assign the new calibration values */
+	me->calib_values.nh3 = fltSumNH3 / seconds;
+	me->calib_values.co = fltSumCO / seconds;
+	me->calib_values.no2 = fltSumNO2 / seconds;
+
+	printf("nh3 calib: %d\r\n", me->calib_values.nh3);
+	printf("co calib: %d\r\n", me->calib_values.co);
+	printf("no2 calib: %d\r\n", me->calib_values.no2);
+}
+
 /* Private functions ---------------------------------------------------------*/
 static esp_err_t adc_configure_channel(adc_conf_t *adc_conf) {
 	esp_err_t ret = ESP_OK;
@@ -181,14 +282,23 @@ static esp_err_t adc_configure_channel(adc_conf_t *adc_conf) {
 static int adc_get_value(adc_channel_t channel) {
 	int adc_value = 0;
 	int adc_acum = 0;
+	uint8_t count = 0;
 
-	/* Acumulate the obtained ADC value 64 times */
-	for (uint8_t i = 0; i < 32; i++) {
+	while (count < 32) {
 		/* Get ADC raw value and add to acumulator when the ADC read is successfully */
 		if (adc_oneshot_read(adc_unit_handle, channel, &adc_value) == ESP_OK) {
 			adc_acum += adc_value;
+			count++;
 		}
 	}
+
+	/* Acumulate the obtained ADC value 64 times */
+//	for (uint8_t i = 0; i < 32; i++) {
+//		/* Get ADC raw value and add to acumulator when the ADC read is successfully */
+//		if (adc_oneshot_read(adc_unit_handle, channel, &adc_value) == ESP_OK) {
+//			adc_acum += adc_value;
+//		}
+//	}
 
 	/* Divide by 32 and assign to output variable */
 	adc_value = adc_acum >> 5;
