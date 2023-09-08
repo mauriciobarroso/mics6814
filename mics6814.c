@@ -167,9 +167,9 @@ void mics6814_calibrate(mics6814_t *const me) {
 	uint8_t pntrNO2 = 0;
 
 	/* The current floating amount in the buffer */
-	uint16_t fltSumNH3 = 0;
-	uint16_t fltSumCO = 0;
-	uint16_t fltSumNO2 = 0;
+	uint32_t fltSumNH3 = 0;
+	uint32_t fltSumCO = 0;
+	uint32_t fltSumNO2 = 0;
 
 	/* Current measurement */
 	uint16_t curNH3;
