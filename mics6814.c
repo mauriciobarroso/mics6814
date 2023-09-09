@@ -206,9 +206,9 @@ void mics6814_calibrate(mics6814_t *const me) {
 		fltSumCO += curCO - bufferCO[pntrCO];
 		fltSumNO2 += curNO2 - bufferNO2[pntrNO2];
 
-		printf("fltSumNH3: %d\r\n", fltSumNH3);
-		printf("fltSumCO: %d\r\n", fltSumCO);
-		printf("fltSumNO2: %d\r\n\n", fltSumNO2);
+		printf("fltSumNH3: %ld\r\n", fltSumNH3);
+		printf("fltSumCO: %ld\r\n", fltSumCO);
+		printf("fltSumNO2: %ld\r\n\n", fltSumNO2);
 
 		/* Store new values in the buffer */
 		bufferNH3[pntrNH3] = curNH3;
