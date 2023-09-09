@@ -47,9 +47,9 @@ extern "C" {
 #include "esp_adc/adc_cali_scheme.h"
 
 /* Exported macro ------------------------------------------------------------*/
-#define NH3_DEFAULT_CALIB_VALUE	6886
-#define CO_DEFAULT_CALIB_VALUE	7606
-#define NO2_DEFAULT_CALIB_VALUE	1240
+#define NH3_DEFAULT_CALIB_VALUE	860
+#define CO_DEFAULT_CALIB_VALUE	950
+#define NO2_DEFAULT_CALIB_VALUE	155
 
 /* Exported typedef ----------------------------------------------------------*/
 /* todo: write descriptions */

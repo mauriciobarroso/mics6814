@@ -301,7 +301,7 @@ static int adc_get_value(adc_channel_t channel) {
 //	}
 
 	/* Divide by 32 and assign to output variable */
-	adc_value = adc_acum >> 5;
+	adc_value = (adc_acum >> 5) / 8;
 
 	return adc_value;
 }
@@ -329,7 +329,7 @@ static float calculate_ratio(mics6814_t *const me, mics6814_channel_e channel) {
 			break;
 	}
 
-	return current_resistance / base_resistance * (8191.0 - base_resistance) / (8191.0 - current_resistance);
+	return current_resistance / base_resistance * (1023.0 - base_resistance) / (1023.0 - current_resistance);
 }
 
 /***************************** END OF FILE ************************************/
