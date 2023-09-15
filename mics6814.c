@@ -157,35 +157,35 @@ void mics6814_calibrate(mics6814_t *const me) {
 	uint8_t delta = 2;
 
 	/* Measurement buffers */
-	uint16_t bufferNH3[seconds];
-	uint16_t bufferCO[seconds];
-	uint16_t bufferNO2[seconds];
+	uint16_t nh3_buf[seconds];
+	uint16_t co_buf[seconds];
+	uint16_t no2_buf[seconds];
 
 	/* Pointers for the next item in the buffer */
-	uint8_t pntrNH3 = 0;
-	uint8_t pntrCO = 0;
-	uint8_t pntrNO2 = 0;
+	uint8_t nh3_ptr = 0;
+	uint8_t co_ptr = 0;
+	uint8_t no2_ptr = 0;
 
 	/* The current floating amount in the buffer */
-	uint32_t fltSumNH3 = 0;
-	uint32_t fltSumCO = 0;
-	uint32_t fltSumNO2 = 0;
+	uint32_t nh3_sum = 0;
+	uint32_t co_sum = 0;
+	uint32_t no2_sum = 0;
 
 	/* Current measurement */
-	uint16_t curNH3;
-	uint16_t curCO;
-	uint16_t curNO2;
+	uint16_t nh3_curr;
+	uint16_t co_curr;
+	uint16_t no2_curr;
 
 	/* Flag of stability of indications */
-	bool isStableNH3 = false;
-	bool isStableCO = false;
-	bool isStableNO2 = false;
+	bool nh3_is_stable = false;
+	bool co_is_stable = false;
+	bool no2_is_stable = false;
 
 	/* Clear the measurements buffers */
 	for (uint8_t i = 0; i < seconds; i++) {
-		bufferNH3[i] = 0;
-		bufferCO[i] = 0;
-		bufferNO2[i] = 0;
+		nh3_buf[i] = 0;
+		co_buf[i] = 0;
+		no2_buf[i] = 0;
 	}
 
 	/* Perform the calibration process */
@@ -193,51 +193,51 @@ void mics6814_calibrate(mics6814_t *const me) {
 		vTaskDelay(pdMS_TO_TICKS(1000));
 
 		/* Get current values */
-		curNH3 = adc_get_value(me->nh3.adc_channel);
-		curCO = adc_get_value(me->co.adc_channel);
-		curNO2 = adc_get_value(me->no2.adc_channel);
+		nh3_curr = adc_get_value(me->nh3.adc_channel);
+		co_curr = adc_get_value(me->co.adc_channel);
+		no2_curr = adc_get_value(me->no2.adc_channel);
 
-		printf("curNH3: %d\r\n", curNH3);
-		printf("curCO: %d\r\n", curCO);
-		printf("curNO2: %d\r\n", curNO2);
-
-		/* Store new values in the buffer */
-		fltSumNH3 += curNH3 - bufferNH3[pntrNH3];
-		fltSumCO += curCO - bufferCO[pntrCO];
-		fltSumNO2 += curNO2 - bufferNO2[pntrNO2];
-
-		printf("fltSumNH3: %ld\r\n", fltSumNH3);
-		printf("fltSumCO: %ld\r\n", fltSumCO);
-		printf("fltSumNO2: %ld\r\n\n", fltSumNO2);
+		printf("nh3_curr: %d\r\n", nh3_curr);
+		printf("co_curr: %d\r\n", co_curr);
+		printf("no2_curr: %d\r\n", no2_curr);
 
 		/* Store new values in the buffer */
-		bufferNH3[pntrNH3] = curNH3;
-		bufferCO[pntrCO] = curCO;
-		bufferNO2[pntrNO2] = curNO2;
+		nh3_sum += nh3_curr - nh3_buf[nh3_ptr];
+		co_sum += co_curr - co_buf[co_ptr];
+		no2_sum += no2_curr - no2_buf[no2_ptr];
+
+		printf("nh3_sum: %ld\r\n", nh3_sum);
+		printf("co_sum: %ld\r\n", co_sum);
+		printf("no2_sum: %ld\r\n\n", no2_sum);
+
+		/* Store new values in the buffer */
+		nh3_buf[nh3_ptr] = nh3_curr;
+		co_buf[co_ptr] = co_curr;
+		no2_buf[no2_ptr] = no2_curr;
 
 		/* Set flag states */
-		isStableNH3 = abs(fltSumNH3 / seconds - curNH3) < delta;
-		isStableCO = abs(fltSumCO / seconds - curCO) < delta;
-		isStableNO2 = abs(fltSumNO2 / seconds - curNO2) < delta;
+		nh3_is_stable = abs(nh3_sum / seconds - nh3_curr) < delta;
+		co_is_stable = abs(co_sum / seconds - co_curr) < delta;
+		no2_is_stable = abs(no2_sum / seconds - no2_curr) < delta;
 
 		/* Pointer to a buffer */
-		pntrNH3 = (pntrNH3 + 1) % seconds;
-		pntrCO = (pntrCO + 1) % seconds;
-		pntrNO2 = (pntrNO2 + 1) % seconds;
-	} while (!isStableNH3 || !isStableCO || !isStableNO2);
+		nh3_ptr = (nh3_ptr + 1) % seconds;
+		co_ptr = (co_ptr + 1) % seconds;
+		no2_ptr = (no2_ptr + 1) % seconds;
+	} while (!nh3_is_stable || !co_is_stable || !no2_is_stable);
 
 	printf("nh3 calib: %d\r\n", me->calib_values.nh3);
 	printf("co calib: %d\r\n", me->calib_values.co);
 	printf("no2 calib: %d\r\n", me->calib_values.no2);
 
 	/* Assign the new calibration values */
-	me->calib_values.nh3 = fltSumNH3 / seconds;
-	me->calib_values.co = fltSumCO / seconds;
-	me->calib_values.no2 = fltSumNO2 / seconds;
-
-	printf("nh3 calib: %d\r\n", me->calib_values.nh3);
-	printf("co calib: %d\r\n", me->calib_values.co);
-	printf("no2 calib: %d\r\n", me->calib_values.no2);
+//	me->calib_values.nh3 = nh3_sum / seconds;
+//	me->calib_values.co = co_sum / seconds;
+//	me->calib_values.no2 = no2_sum / seconds;
+//
+//	printf("nh3 calib: %d\r\n", me->calib_values.nh3);
+//	printf("co calib: %d\r\n", me->calib_values.co);
+//	printf("no2 calib: %d\r\n", me->calib_values.no2);
 }
 
 /* Private functions ---------------------------------------------------------*/
@@ -291,14 +291,6 @@ static int adc_get_value(adc_channel_t channel) {
 			count++;
 		}
 	}
-
-	/* Acumulate the obtained ADC value 64 times */
-//	for (uint8_t i = 0; i < 32; i++) {
-//		/* Get ADC raw value and add to acumulator when the ADC read is successfully */
-//		if (adc_oneshot_read(adc_unit_handle, channel, &adc_value) == ESP_OK) {
-//			adc_acum += adc_value;
-//		}
-//	}
 
 	/* Divide by 32 and assign to output variable */
 	adc_value = (adc_acum >> 5) / 8;
