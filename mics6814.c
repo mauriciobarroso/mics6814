@@ -151,7 +151,7 @@ float mics6814_get_gas(mics6814_t *const me, gas_e gas) {
 void mics6814_calibrate(mics6814_t *const me) {
 	/* The number of seconds that must pass before than we will assume that the
 	 * calibration is complete (less than 64 seconds to avoid overflow) */
-	uint8_t seconds = 10;
+	uint8_t seconds = 30;
 
 	/* Tolerance for the average of the current value */
 	uint8_t delta = 2;
