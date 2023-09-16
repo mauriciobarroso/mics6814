@@ -154,7 +154,7 @@ void mics6814_calibrate(mics6814_t *const me) {
 	uint8_t seconds = 30;
 
 	/* Tolerance for the average of the current value */
-	uint8_t delta = 2;
+	uint8_t delta = 1;
 
 	/* Measurement buffers */
 	uint16_t nh3_buf[seconds];
