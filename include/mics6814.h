@@ -46,9 +46,9 @@ extern "C" {
 #include "ads101x.h"
 
 /* Exported macro ------------------------------------------------------------*/
-#define NH3_DEFAULT_CALIB_VALUE	860
-#define CO_DEFAULT_CALIB_VALUE	950
-#define NO2_DEFAULT_CALIB_VALUE	155
+#define NH3_DEFAULT_CALIB_VALUE	420
+#define CO_DEFAULT_CALIB_VALUE	730
+#define NO2_DEFAULT_CALIB_VALUE	820
 
 /* Exported typedef ----------------------------------------------------------*/
 /* todo: write descriptions */
