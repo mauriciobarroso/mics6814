@@ -51,32 +51,28 @@
 /* Private variables ---------------------------------------------------------*/
 const static char * TAG = "mics6814";
 
-static adc_oneshot_unit_handle_t adc_unit_handle = NULL;
-
 /* Private function prototypes -----------------------------------------------*/
-static esp_err_t adc_configure_channel(adc_conf_t *adc_conf);
-static int adc_get_value(adc_channel_t channel);
+static int16_t adc_get_value(mics6814_t *const me, mics6814_channel_e channel);
 static float calculate_ratio(mics6814_t *const me, mics6814_channel_e channel);
 
 /* Exported functions --------------------------------------------------------*/
 /**
   * @brief Initialize a MiCS-6814 sensor instance
   */
-esp_err_t mics6814_init(mics6814_t *const me, adc_channel_t nh3_channel,
-		adc_channel_t co_channel, adc_channel_t no2_channel) {
+esp_err_t mics6814_init(mics6814_t *const me, gpio_num_t int_pin, i2c_bus_t *i2c_bus) {
 	ESP_LOGI(TAG, "Initializing MiCS-6814 instance...");
 
+	/* Variable to return error code */
 	esp_err_t ret = ESP_OK;
 
-	/* Fill mics6814 channels */
-	me->nh3.adc_channel = nh3_channel;
-	me->co.adc_channel = co_channel;
-	me->no2.adc_channel = no2_channel;
+	/* Initialize ADC */
+	ret = ads101x_init(&me->adc, ADS101X_MODEL_5, int_pin, i2c_bus, ADS101X_I2C_ADDRESS, NULL, NULL);
 
-	/* Initialize ADC channels */
-	adc_configure_channel(&me->nh3);
-	adc_configure_channel(&me->co);
-	adc_configure_channel(&me->no2);
+	if (ret != ESP_OK) {
+		return ESP_FAIL;
+	}
+
+	ads101x_set_gain(&me->adc, ADS101X_GAIN_TWOTHIRDS);
 
 	/* Fill default calibration values */
 	me->calib_values.nh3 = NH3_DEFAULT_CALIB_VALUE;
@@ -193,9 +189,9 @@ void mics6814_calibrate(mics6814_t *const me) {
 		vTaskDelay(pdMS_TO_TICKS(1000));
 
 		/* Get current values */
-		nh3_curr = adc_get_value(me->nh3.adc_channel);
-		co_curr = adc_get_value(me->co.adc_channel);
-		no2_curr = adc_get_value(me->no2.adc_channel);
+		nh3_curr = adc_get_value(me, MICS6814_CH_NH3);
+		co_curr = adc_get_value(me, MICS6814_CH_CO);
+		no2_curr = adc_get_value(me, MICS6814_CH_NO2);
 
 		printf("nh3_curr: %d\r\n", nh3_curr);
 		printf("co_curr: %d\r\n", co_curr);
@@ -231,69 +227,20 @@ void mics6814_calibrate(mics6814_t *const me) {
 	printf("no2 calib: %d\r\n", me->calib_values.no2);
 
 	/* Assign the new calibration values */
-//	me->calib_values.nh3 = nh3_sum / seconds;
-//	me->calib_values.co = co_sum / seconds;
-//	me->calib_values.no2 = no2_sum / seconds;
-//
-//	printf("nh3 calib: %d\r\n", me->calib_values.nh3);
-//	printf("co calib: %d\r\n", me->calib_values.co);
-//	printf("no2 calib: %d\r\n", me->calib_values.no2);
+	me->calib_values.nh3 = nh3_sum / seconds;
+	me->calib_values.co = co_sum / seconds;
+	me->calib_values.no2 = no2_sum / seconds;
+
+	printf("nh3 calib: %d\r\n", me->calib_values.nh3);
+	printf("co calib: %d\r\n", me->calib_values.co);
+	printf("no2 calib: %d\r\n", me->calib_values.no2);
 }
 
 /* Private functions ---------------------------------------------------------*/
-static esp_err_t adc_configure_channel(adc_conf_t *adc_conf) {
-	esp_err_t ret = ESP_OK;
+static int16_t adc_get_value(mics6814_t *const me, mics6814_channel_e channel) {
+	int16_t adc_value;
 
-	/* Fill an ADC unit configuration */
-	adc_oneshot_unit_init_cfg_t adc_config = {
-			.unit_id = ADC_UNIT_1,
-			.ulp_mode = ADC_ULP_MODE_DISABLE,
-	};
-
-	/* Create a new ADC unit if does not exist */
-	if (adc_unit_handle == NULL) {
-		ret = adc_oneshot_new_unit(&adc_config, &adc_unit_handle);
-
-		/* Check if the ADC unit was created correctly */
-		if (ret != ESP_OK) {
-			ESP_LOGE(TAG, "Failed to create ADC unit");
-			return ret;
-		}
-	}
-
-	/* Set up the ADC channel structure */
-	adc_oneshot_chan_cfg_t adc_channel_config = {
-			.bitwidth = ADC_BITWIDTH_13,
-			.atten = ADC_ATTEN_DB_11,
-	};
-
-	/* Configure ADC channel instance */
-	ret = adc_oneshot_config_channel(adc_unit_handle, adc_conf->adc_channel, &adc_channel_config);
-
-	if (ret != ESP_OK) {
-		ESP_LOGE(TAG, "Failed to configure ADC channel %d", adc_conf->adc_channel);
-		return ret;
-	}
-
-	/* Return ESP_OK */
-	return ret;
-}
-
-static int adc_get_value(adc_channel_t channel) {
-	int adc_value = 0;
-	int adc_acum = 0;
-	uint8_t count = 0;
-
-	while (count < 32) {
-		/* Get ADC raw value and add to acumulator when the ADC read is successfully */
-		if (adc_oneshot_read(adc_unit_handle, channel, &adc_value) == ESP_OK) {
-			adc_acum += adc_value;
-			count++;
-		}
-	}
-
-	/* Divide by 32 and assign to output variable */
-	adc_value = (adc_acum >> 5) / 8;
+	ads101x_read_single_ended(&me->adc, channel, &adc_value);
 
 	return adc_value;
 }
@@ -304,15 +251,12 @@ static float calculate_ratio(mics6814_t *const me, mics6814_channel_e channel) {
 	switch (channel) {
 		case MICS6814_CH_NH3:
 			base_resistance = (float)me->calib_values.nh3;
-			current_resistance = (float)adc_get_value(me->nh3.adc_channel);
 			break;
 		case MICS6814_CH_CO:
 			base_resistance = (float)me->calib_values.co;
-			current_resistance = (float)adc_get_value(me->co.adc_channel);
 			break;
 		case MICS6814_CH_NO2:
 			base_resistance = (float)me->calib_values.no2;
-			current_resistance = (float)adc_get_value(me->no2.adc_channel);
 			break;
 		default:
 			/* Base and current resistance are 0 if the channel is invalid */
@@ -321,7 +265,9 @@ static float calculate_ratio(mics6814_t *const me, mics6814_channel_e channel) {
 			break;
 	}
 
-	return current_resistance / base_resistance * (1023.0 - base_resistance) / (1023.0 - current_resistance);
+	current_resistance = (float)adc_get_value(me, channel);
+
+	return current_resistance / base_resistance * (2047.0 - base_resistance) / (2047.0 - current_resistance);
 }
 
 /***************************** END OF FILE ************************************/

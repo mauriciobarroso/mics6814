@@ -42,9 +42,8 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
-#include "esp_adc/adc_oneshot.h"
-#include "esp_adc/adc_cali.h"
-#include "esp_adc/adc_cali_scheme.h"
+
+#include "ads101x.h"
 
 /* Exported macro ------------------------------------------------------------*/
 #define NH3_DEFAULT_CALIB_VALUE	860
@@ -65,16 +64,10 @@ typedef enum {
 } gas_e;
 
 typedef enum {
-	MICS6814_CH_CO = 0,
-	MICS6814_CH_NO2,
-	MICS6814_CH_NH3
+	MICS6814_CH_NO2 = ADS101X_CHANNEL_0,
+	MICS6814_CH_NH3 = ADS101X_CHANNEL_1,
+	MICS6814_CH_CO = ADS101X_CHANNEL_2
 } mics6814_channel_e;
-
-/* todo: write descriptions */
-typedef struct {
-	adc_channel_t adc_channel;
-	adc_cali_handle_t adc_cali_handle;
-} adc_conf_t;
 
 typedef struct {
 	uint16_t nh3;
@@ -84,9 +77,7 @@ typedef struct {
 
 /* todo: write descriptions */
 typedef struct {
-	adc_conf_t nh3;
-	adc_conf_t co;
-	adc_conf_t no2;
+	ads101x_t adc;
 	calibration_values_t calib_values;
 } mics6814_t;
 
@@ -102,8 +93,7 @@ typedef struct {
   * @retval
   * 	- ESP_OK on success
   */
-esp_err_t mics6814_init(mics6814_t *const me, adc_channel_t nh3_channel,
-		adc_channel_t co_channel, adc_channel_t no2_channel);
+esp_err_t mics6814_init(mics6814_t *const me, gpio_num_t int_pin, i2c_bus_t *i2c_bus);
 
 /**
   * @brief Load calibration values for a MICS-6814 sensor instance
