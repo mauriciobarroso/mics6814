@@ -46,9 +46,9 @@ extern "C" {
 #include "ads101x.h"
 
 /* Exported macro ------------------------------------------------------------*/
-#define NH3_DEFAULT_CALIB_VALUE	420
-#define CO_DEFAULT_CALIB_VALUE	730
-#define NO2_DEFAULT_CALIB_VALUE	820
+#define NH3_DEFAULT_CALIB_VALUE	580
+#define CO_DEFAULT_CALIB_VALUE	790
+#define NO2_DEFAULT_CALIB_VALUE	900
 
 /* Exported typedef ----------------------------------------------------------*/
 /* todo: write descriptions */
@@ -120,13 +120,13 @@ float mics6814_get_gas(mics6814_t *const me, gas_e gas);
 /**
   * @brief Get a value for a specific gas
   *
-  * @param me Pointer to a mics6814_t structure
-  * @param gas Type of specific gas
-  *
-  * @retval
-  * 	- Gas value
+  * @param me      : Pointer to a mics6814_t structure
+  * @param seconds : The number of seconds that must pass before than we will
+  *                  assume that the calibration is complete (less than 64
+  *                  seconds to avoid overflow)
+  * @param delta   : Tolerance for the average of the current value
   */
-void mics6814_calibrate(mics6814_t *const me);
+void mics6814_calibrate(mics6814_t *const me, uint8_t seconds, uint8_t delta);
 
 #ifdef __cplusplus
 }

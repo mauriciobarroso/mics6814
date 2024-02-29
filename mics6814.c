@@ -144,14 +144,7 @@ float mics6814_get_gas(mics6814_t *const me, gas_e gas) {
 /**
   * @brief Get a value for a specific gas
   */
-void mics6814_calibrate(mics6814_t *const me) {
-	/* The number of seconds that must pass before than we will assume that the
-	 * calibration is complete (less than 64 seconds to avoid overflow) */
-	uint8_t seconds = 40;
-
-	/* Tolerance for the average of the current value */
-	uint8_t delta = 1;
-
+void mics6814_calibrate(mics6814_t *const me, uint8_t seconds, uint8_t delta) {
 	/* Measurement buffers */
 	uint16_t nh3_buf[seconds];
 	uint16_t co_buf[seconds];
