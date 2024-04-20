@@ -44,6 +44,7 @@ extern "C" {
 #include <stdint.h>
 
 #include "ads101x.h"
+#include "driver/i2c_master.h"
 
 /* Exported macro ------------------------------------------------------------*/
 #define NH3_DEFAULT_CALIB_VALUE	580
@@ -53,32 +54,35 @@ extern "C" {
 /* Exported typedef ----------------------------------------------------------*/
 /* todo: write descriptions */
 typedef enum {
-	MICS6814_GAS_CO = 0,
-	MICS6814_GAS_NO2,
-	MICS6814_GAS_NH3,
-	MICS6814_GAS_C3H8,
-	MICS6814_GAS_C4H10,
-	MICS6814_GAS_CH4,
-	MICS6814_GAS_H2,
-	MICS6814_GAS_C2H5OH
-} gas_e;
-
-typedef enum {
 	MICS6814_CH_NO2 = ADS101X_CHANNEL_0,
 	MICS6814_CH_NH3 = ADS101X_CHANNEL_1,
 	MICS6814_CH_CO = ADS101X_CHANNEL_2
 } mics6814_channel_e;
 
+/* todo: write descriptions */
 typedef struct {
 	uint16_t nh3;
 	uint16_t co;
 	uint16_t no2;
-} calibration_values_t;
+} mics6814_calib_values_t;
+
+/* todo: write descriptions */
+typedef struct {
+	float co;
+	float no2;
+	float nh3;
+	float c3h8;
+	float c4h10;
+	float ch4;
+	float h2;
+	float c2h5oh;
+} mics6814_gases_values_t;
 
 /* todo: write descriptions */
 typedef struct {
 	ads101x_t adc;
-	calibration_values_t calib_values;
+	mics6814_calib_values_t calib_values;
+	mics6814_gases_values_t gases_values;
 } mics6814_t;
 
 /* Exported variables --------------------------------------------------------*/
@@ -88,12 +92,14 @@ typedef struct {
 /**
   * @brief Initialize a MiCS-6814 sensor instance
   *
-  * @param me Pointer to a mics6814_t structure
+  * @param me             : Pointer to a mics6814_t structure
+  * @param i2c_bus_handle :
+  * @param int_pin        :
   *
   * @retval
   * 	- ESP_OK on success
   */
-esp_err_t mics6814_init(mics6814_t *const me, gpio_num_t int_pin, i2c_bus_t *i2c_bus);
+esp_err_t mics6814_init(mics6814_t *const me, i2c_master_bus_handle_t i2c_bus_handle, gpio_num_t int_pin);
 
 /**
   * @brief Load calibration values for a MICS-6814 sensor instance
@@ -110,12 +116,8 @@ void mics6814_load_calibration_data(mics6814_t *const me, uint16_t nh3_value,
   * @brief Get a value for a specific gas
   *
   * @param me Pointer to a mics6814_t structure
-  * @param gas Type of specific gas
-  *
-  * @retval
-  * 	- Gas value
   */
-float mics6814_get_gas(mics6814_t *const me, gas_e gas);
+void mics6814_get_gases_values(mics6814_t *const me);
 
 /**
   * @brief Get a value for a specific gas

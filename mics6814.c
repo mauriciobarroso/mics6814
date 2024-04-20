@@ -59,25 +59,26 @@ static float calculate_ratio(mics6814_t *const me, mics6814_channel_e channel);
 /**
   * @brief Initialize a MiCS-6814 sensor instance
   */
-esp_err_t mics6814_init(mics6814_t *const me, gpio_num_t int_pin, i2c_bus_t *i2c_bus) {
+esp_err_t mics6814_init(mics6814_t *const me, i2c_master_bus_handle_t i2c_bus_handle, gpio_num_t int_pin) {
 	ESP_LOGI(TAG, "Initializing MiCS-6814 instance...");
 
 	/* Variable to return error code */
 	esp_err_t ret = ESP_OK;
 
 	/* Initialize ADC */
-	ret = ads101x_init(&me->adc, ADS101X_MODEL_5, int_pin, i2c_bus, ADS101X_I2C_ADDRESS, NULL, NULL);
+	ret = ads101x_init(&me->adc, ADS101X_MODEL_5, int_pin, i2c_bus_handle, ADS101X_I2C_ADDRESS);
 
 	if (ret != ESP_OK) {
 		return ESP_FAIL;
 	}
 
-	ads101x_set_gain(&me->adc, ADS101X_GAIN_TWOTHIRDS);
+	ads101x_set_gain(&me->adc, ADS101X_GAIN_ONE);
+	ads101x_set_data_rate(&me->adc, ADS101X_DATA_RATE_3300SPS);
 
 	/* Fill default calibration values */
-	me->calib_values.nh3 = NH3_DEFAULT_CALIB_VALUE;
-	me->calib_values.co = CO_DEFAULT_CALIB_VALUE;
-	me->calib_values.no2 = NO2_DEFAULT_CALIB_VALUE;
+	me->calib_values.nh3 = 120;
+	me->calib_values.co = 300;
+	me->calib_values.no2 = 710;
 
 	/* Print success message */
 	ESP_LOGI(TAG, "Initialized successfully");
@@ -99,46 +100,21 @@ void mics6814_load_calibration_data(mics6814_t *const me, uint16_t nh3_value,
 /**
   * @brief Get a value for a specific gas
   */
-float mics6814_get_gas(mics6814_t *const me, gas_e gas) {
-	float gas_value;
-
+void mics6814_get_gases_values(mics6814_t *const me) {
 	/* Calculate the ratio for all the sensor channels */
 	float ratio0 = calculate_ratio(me, MICS6814_CH_NH3);
 	float ratio1 = calculate_ratio(me, MICS6814_CH_CO);
 	float ratio2 = calculate_ratio(me, MICS6814_CH_NO2);
 
-	/* Calculate the specific gas */
-	switch (gas) {
-		case MICS6814_GAS_CO:
-			gas_value = pow(ratio1, -1.179) * 4.385;
-			break;
-    case MICS6814_GAS_NO2:
-    	gas_value = pow(ratio2, 1.007) / 6.855;
-			break;
-    case MICS6814_GAS_NH3:
-    	gas_value = pow(ratio0, -1.67) / 1.47;
-    	break;
-    case MICS6814_GAS_C3H8:
-    	gas_value = pow(ratio0, -2.518) * 570.164;
-			break;
-		case MICS6814_GAS_C4H10:
-			gas_value = pow(ratio0, -2.138) * 398.107;
-			break;
-    case MICS6814_GAS_CH4:
-    	gas_value = pow(ratio1, -4.363) * 630.957;
-    	break;
-    case MICS6814_GAS_H2:
-    	gas_value = pow(ratio1, -1.8) * 0.73;
-    	break;
-    case MICS6814_GAS_C2H5OH:
-    	gas_value = pow(ratio1, -1.552) * 1.622;
-    	break;
-    default:
-    	gas_value = -1;	/* Negative number for error */
-			break;
-	}
-
-	return gas_value;
+	/* Calculate the gases values */
+	me->gases_values.co = pow(ratio1, -1.179) * 4.385;
+	me->gases_values.no2 = pow(ratio2, 1.007) / 6.855;
+	me->gases_values.nh3 = pow(ratio0, -1.67) / 1.47;
+	me->gases_values.c3h8 = pow(ratio0, -2.518) * 570.164;
+	me->gases_values.c4h10 = pow(ratio0, -2.138) * 398.107;
+	me->gases_values.ch4 = pow(ratio1, -4.363) * 630.957;
+	me->gases_values.h2 = pow(ratio1, -1.8) * 0.73;
+	me->gases_values.c2h5oh = pow(ratio1, -1.552) * 1.622;
 }
 
 /**
@@ -232,10 +208,14 @@ void mics6814_calibrate(mics6814_t *const me, uint8_t seconds, uint8_t delta) {
 /* Private functions ---------------------------------------------------------*/
 static int16_t adc_get_value(mics6814_t *const me, mics6814_channel_e channel) {
 	int16_t adc_value;
+	int32_t adc_sum = 0;
 
-	ads101x_read_single_ended(&me->adc, channel, &adc_value);
+	for (uint8_t i = 0;  i < 32; i++) {
+		ads101x_read_single_ended(&me->adc, channel, &adc_value);
+		adc_sum += adc_value;
+	}
 
-	return adc_value;
+	return (adc_sum >> 5);
 }
 
 static float calculate_ratio(mics6814_t *const me, mics6814_channel_e channel) {
